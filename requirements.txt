@@ -1,0 +1,14 @@
+streamlit
+openai
+python-dotenv
+PyMuPDF
+pandas
+openpyxl
+requests
+python-docx
+python-pptx
+python-docx
+python-pptx
+Office365-REST-Python-Client
+matplotlib
+PyMuPDF
