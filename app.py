@@ -1161,8 +1161,11 @@ if is_admin:
                 )
         avg_days_stage = round(sum(days_in_stage) / len(days_in_stage), 1) if days_in_stage else 0
 
-        avg_financing = df["FinancingNeed"].mean() if "FinancingNeed" in df.columns else 0
-        avg_sdgs = df["SDGs"].apply(lambda x: len(x) if isinstance(x, list) else 0).mean() if "SDGs" in df.columns else 0
+        financing_col = "Financing need or round size (USD)"
+        avg_financing = df[financing_col].mean() if financing_col in df.columns else 0
+
+        sdgs_col = "Main SDGs targeted (3 max)"
+        avg_sdgs = df[sdgs_col].apply(lambda x: len(x) if isinstance(x, list) else 0).mean() if sdgs_col in df.columns else 0
 
         # Year-over-year growth
         df_time = df.dropna(subset=["LastUpdate"]).copy()
@@ -1252,6 +1255,37 @@ if is_admin:
             plt.xlabel("Projects")
             plt.tight_layout()
             st.pyplot(fig4, use_container_width=True)
+
+        # Projects table
+        st.subheader("Projects Table")
+        # Convert list‑type cells to strings so PyArrow can serialize the dataframe
+        df_display = df.applymap(
+            lambda v: "; ".join(map(str, v)) if isinstance(v, list) else v
+        )
+        # Remove duplicate default columns from the display
+        df_display.drop(
+            columns=["Revenues", "SOM", "IRR", "FinancingNeed", "Trend", "Rejected", "Sector"],
+            inplace=True,
+            errors="ignore"
+        )
+        all_cols = df_display.columns.tolist()
+        styled = df_display[all_cols].style \
+            .applymap(style_status, subset=[c for c in ["Status"] if c in all_cols]) \
+            .applymap(style_region, subset=[c for c in ["Region of operation"] if c in all_cols]) \
+            .applymap(style_sector, subset=[c for c in ["Sector"] if c in all_cols])
+        st.dataframe(styled, use_container_width=True)
+
+        # ── Projects Table ──────────────────────────────────────────
+        st.subheader("Projects Table")
+        styled = df[[
+            "Project registered name", "Sector", "Region of operation", "Status",
+            "Portfolio", "Last 12 months revenues (USD)", "Market size or SOM (USD)",
+            "Expected IRR (%)", "Financing need or round size (USD)", "LastUpdate"
+        ]].style \
+            .applymap(style_status, subset=["Status"]) \
+            .applymap(style_region, subset=["Region of operation"]) \
+            .applymap(style_sector, subset=["Sector"])
+        st.dataframe(styled, use_container_width=True)
 
         # ── Detailed “View & Edit Projects” interface ──────────────────
         for row_num, rec in enumerate(records):
@@ -1454,28 +1488,40 @@ if is_admin:
                             edited[field] = st.number_input(
                                 field, min_value=0.0, max_value=100.0, value=num_val, step=0.1
                             )
-
+                        elif field == "Breakeven year":
+                            # Parse existing value or default to current year
+                            try:
+                                year_val = int(val)
+                            except:
+                                year_val = datetime.now().year
+                            # Clamp to min/max bounds
+                            year_val = max(1900, min(year_val, 2100))
+                            edited[field] = st.number_input(
+                                "Breakeven year",
+                                min_value=1900,
+                                max_value=2100,
+                                value=year_val,
+                                step=1,
+                                format="%d"
+                            )
                         elif field == "Region of operation":
                             edited[field] = st.selectbox(
                                 field,
                                 list(REGION_COLORS.keys()),
                                 index=list(REGION_COLORS.keys()).index(val) if val in REGION_COLORS else 0,
                             )
-
                         elif field == "Main country of current operations":
                             edited[field] = st.selectbox(
                                 field,
                                 COUNTRY_OPTIONS,
                                 index=COUNTRY_OPTIONS.index(val) if val in COUNTRY_OPTIONS else 0,
                             )
-
                         elif field == "Instrument":
                             edited[field] = st.selectbox(
                                 field,
                                 INSTRUMENT_OPTIONS,
                                 index=INSTRUMENT_OPTIONS.index(val) if val in INSTRUMENT_OPTIONS else 0,
                             )
-
                         elif field == "Specific Sector(s)":
                             defaults = ([s.strip() for s in val.split(";")]
                                         if isinstance(val, str) else val)
@@ -1483,7 +1529,6 @@ if is_admin:
                             edited[field] = st.multiselect(
                                 field, SPECIFIC_SECTOR_OPTIONS, default=safe_defaults
                             )
-                        
                         elif field == "Use of proceeds":
                             edited[field] = st.text_area(field, value=str(val))
                         else:
@@ -1820,12 +1865,25 @@ elif is_portfolio_ncge or is_portfolio_ncgd:
                 "Instrument","Financing need or round size (USD)","Use of proceeds",
                 "Portfolio","LastUpdate","Status","Core team","Contact e-mail"
             ]
-            display_cols = [c for c in desired_order if c in dfp_display.columns]
-            styledp = dfp_display[display_cols].style \
-                .applymap(style_status, subset=["Status"]) \
-                .applymap(style_region, subset=["Region of operation"]) \
-                .applymap(style_sector, subset=["Primary sector / theme"])
-            st.dataframe(styledp, use_container_width=True)
+
+            # Projects table (Portfolio) under Traffic Light Indicators
+            st.subheader("Projects Table")
+            # Convert list‑type cells to strings for display
+            dfp_display = dfp.applymap(
+                lambda v: "; ".join(map(str, v)) if isinstance(v, list) else v
+            )
+            # Remove duplicate default columns
+            dfp_display.drop(
+                columns=["Revenues", "SOM", "IRR", "FinancingNeed", "Trend", "Rejected", "Sector"],
+                inplace=True,
+                errors="ignore"
+            )
+            all_cols = dfp_display.columns.tolist()
+            styled = dfp_display[all_cols].style \
+                .applymap(style_status, subset=[c for c in ["Status"] if c in all_cols]) \
+                .applymap(style_region, subset=[c for c in ["Region of operation"] if c in all_cols]) \
+                .applymap(style_sector, subset=[c for c in ["Sector"] if c in all_cols])
+            st.dataframe(styled, use_container_width=True)
 
             # Compute extra KPIs using only portfolio projects
             days_in_stage = []
@@ -1837,8 +1895,11 @@ elif is_portfolio_ncge or is_portfolio_ncgd:
                     )
             avg_days_stage = round(sum(days_in_stage) / len(days_in_stage), 1) if days_in_stage else 0
 
-            avg_financing = dfp["FinancingNeed"].mean() if "FinancingNeed" in dfp.columns else 0
-            avg_sdgs = dfp["SDGs"].apply(lambda x: len(x) if isinstance(x, list) else 0).mean() if "SDGs" in dfp.columns else 0
+            financing_col = "Financing need or round size (USD)"
+            avg_financing = dfp[financing_col].mean() if financing_col in dfp.columns else 0
+
+            sdgs_col = "Main SDGs targeted (3 max)"
+            avg_sdgs = dfp[sdgs_col].apply(lambda x: len(x) if isinstance(x, list) else 0).mean() if sdgs_col in dfp.columns else 0
 
             # Year-over-year growth of portfolio submissions
             dfp_time = dfp.dropna(subset=["LastUpdate"]).copy()
@@ -1870,7 +1931,6 @@ elif is_portfolio_ncge or is_portfolio_ncgd:
                 rev_prev = _mean_safe(dfp_time[dfp_time["YearMonth"] == prev_ym][revenue_col])
             else:
                 rev_curr = rev_prev = 0.0
-            # Use the "Expected IRR (%)" column for IRR metrics
             if irr_col in dfp_time.columns:
                 irr_curr = _mean_safe(dfp_time[dfp_time["YearMonth"] == current_ym][irr_col])
                 irr_prev = _mean_safe(dfp_time[dfp_time["YearMonth"] == prev_ym][irr_col])
