@@ -1276,6 +1276,7 @@ if is_admin:
         st.dataframe(styled, use_container_width=True)
 
         # ── Detailed “View & Edit Projects” interface ──────────────────
+        st.subheader("View & Edit Projects")
         for row_num, rec in enumerate(records):
             fld = rec["folder"]
             base = os.path.join(UPLOAD_FOLDER, fld)
