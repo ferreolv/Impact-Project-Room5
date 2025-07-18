@@ -1275,18 +1275,6 @@ if is_admin:
             .applymap(style_sector, subset=[c for c in ["Sector"] if c in all_cols])
         st.dataframe(styled, use_container_width=True)
 
-        # ── Projects Table ──────────────────────────────────────────
-        st.subheader("Projects Table")
-        styled = df[[
-            "Project registered name", "Sector", "Region of operation", "Status",
-            "Portfolio", "Last 12 months revenues (USD)", "Market size or SOM (USD)",
-            "Expected IRR (%)", "Financing need or round size (USD)", "LastUpdate"
-        ]].style \
-            .applymap(style_status, subset=["Status"]) \
-            .applymap(style_region, subset=["Region of operation"]) \
-            .applymap(style_sector, subset=["Sector"])
-        st.dataframe(styled, use_container_width=True)
-
         # ── Detailed “View & Edit Projects” interface ──────────────────
         for row_num, rec in enumerate(records):
             fld = rec["folder"]
